@@ -13,6 +13,10 @@ import pytesseract
 
 # Import setup_logger from logger.py
 from logger import setup_logger
+from gpt2brain import OpenAIBrain
+
+# Initialize the GPT-3 brain
+brain = OpenAIBrain()
 
 # Initialize the logger
 logger = setup_logger('pdf_loader')
@@ -44,6 +48,7 @@ def extract_doi_from_text(text):
         logger.info(f"Extracting DOI from text")
         pattern = re.compile(r'\\b(10[.][0-9]{4,}(?:[.][0-9]+)*/\\S+)\\b')
         match = pattern.search(text)
+        print(match)
         if match:
             doi = match.group()
             # Remove any characters after the last digit
@@ -166,6 +171,9 @@ def load_pdf(file_path, output_directory='output', filename=None, summarize_rati
     Returns:
     None
     """
+    filename = filename if filename else 'default'  # Assign a default value to filename if it's None
+    sanitized_filename = filename  # Assign the default filename to sanitized_filename
+    
     try:
         logger.info(f"Loading PDF file from path: {file_path}")
         
@@ -186,21 +194,34 @@ def load_pdf(file_path, output_directory='output', filename=None, summarize_rati
                     sanitized_filename = handle_doi(doi)
         else:  # If no DOI is scraped
             logger.info('No DOI scraped.')
-            doi = input('Please manually enter a DOI or press Enter to skip: ')
+            # Use GPT-3 to scrape DOI
+            doi_bot_prompt = open_file(r'prompt/citation_bot_prompt.txt')
+            scrape_prompt = "Extract the DOI from the following text: " + text_content[:10000]  # Limit to first 5000 characters
+            scrape_response = brain.generate_response(prompt_input=doi_bot_prompt,
+                                                      user_input=scrape_prompt, 
+                                                      model="gpt-3.5-turbo-16k")
+            print(scrape_response)
+            doi = scrape_response.strip()
+            # doi = extract_doi_from_text(scrape_response)#['choices'][0]['text'])
+
+            # Check if the DOI is not empty after stripping
+            if not doi:
+                doi = input('Please manually enter a DOI or press Enter to skip: ')
+
+            # Continue with your existing code...
             if doi:
+                doi = doi.replace("DOI: ", "").strip()  # Strip the "DOI: " prefix
+                logger.info(f'DOI scraped by GPT-3: {doi}')
                 sanitized_filename = handle_doi(doi)
 
         # If no DOI is provided or found, or if DOI handling fails
-        if filename is None:
+        if sanitized_filename is None:
             file_name = input('Please enter a file name or press Enter to use the original name: ')
-            if file_name:
-                sanitized_filename = sanitize_filename(file_name)
-            else:
-                sanitized_filename = sanitize_filename(filename if filename else os.path.basename(file_path))
+            sanitized_filename = sanitize_filename(file_name if file_name else filename)
 
         txt_file_path = save_text_to_file(text_content, sanitized_filename, output_directory)
 
-        summarize_prompt_input = open_file(r'prompt_doc/doc_summerize_bot_prompt.txt')
+        summarize_prompt_input = open_file(r'prompt/doc_summerize_bot_prompt.txt')
         summary_path = summarize(txt_file_path, 
                                  summerize_prompt_input = summarize_prompt_input,
                                  summarize_ratio=float(summarize_ratio))

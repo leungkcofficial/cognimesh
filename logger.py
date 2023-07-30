@@ -2,7 +2,7 @@ import logging
 import os
 from datetime import date
 from dotenv import load_dotenv, find_dotenv
-from logging.handlers import RotatingFileHandler
+from logging.handlers import TimedRotatingFileHandler
 
 # Load environment variables
 load_dotenv(find_dotenv())
@@ -35,9 +35,10 @@ def setup_logger(script_name):
     logger.setLevel(LOG_LEVELS.get(LOG_LEVEL, logging.DEBUG))
 
     # Create a file handler that logs debug and higher level messages to a file
-    log_file = os.path.join(LOG_DIR, f"{script_name}_{date.today().isoformat()}.log")
-    file_handler = RotatingFileHandler(log_file, maxBytes=5000, backupCount=5)
+    log_file = os.path.join(LOG_DIR, f"{script_name}.log")
+    file_handler = TimedRotatingFileHandler(log_file, when='midnight', interval=1, backupCount=7)
     file_handler.setLevel(LOG_LEVELS.get(LOG_LEVEL, logging.DEBUG))
+    file_handler.suffix = "%Y-%m-%d"
 
     # Create a console handler that logs error and higher level messages to the console
     console_handler = logging.StreamHandler()

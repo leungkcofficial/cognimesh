@@ -25,5 +25,6 @@ Your task is to:
 
 1. keep the same content of the text, do not delete any content or examples
 2. remove repeated or meaningless content
-3. Rewrite the number of topics so they are appropriately numbered
-3. output the finalized notes in the above structure
+3. Focus on results, implications and discussions of the research ariticle
+4. Rewrite the number of topics so they are appropriately numbered
+5. output the finalized notes in the above structure

@@ -13,7 +13,9 @@ logger = setup_logger(__name__)
 # Create a OpenAIBrain instance
 brain = OpenAIBrain()
 
-def process_and_summarize_chunks(splits, prompt_input, summarize_ratio = 0.2, attempt_limit = 5):
+def process_and_summarize_chunks(splits, prompt_input,
+                                 model="gpt-4-32k",
+                                 summarize_ratio = 0.2, attempt_limit = 5):
     note_chunks = []
     try:
         for text_chunk in splits:
@@ -41,7 +43,7 @@ def process_and_summarize_chunks(splits, prompt_input, summarize_ratio = 0.2, at
         while summary is None and attempts < attempt_limit:
             summary = brain.generate_response(final_notes_prompt, 
                                               notes,
-                                              model="gpt-3.5-turbo-16k",
+                                              model=model,
                                               max_tokens=max_tokens)
             attempts += 1
         

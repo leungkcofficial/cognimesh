@@ -5,3 +5,4 @@ vectors/
 logs/
 backup/
 *.log
+*.zip

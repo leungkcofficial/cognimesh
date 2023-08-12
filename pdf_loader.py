@@ -228,8 +228,8 @@ def load_pdf(file_path, output_directory='output', filename=None, summarize_rati
         
         logger.info(f"Saved summary to {summary_path}")
 
-        move_file(file_path, os.path.join(output_directory, f"{sanitized_filename}.pdf"))
-        move_file(txt_file_path, os.path.join(output_directory, f"{sanitized_filename}.txt"))
+        move_file(file_path, os.path.join(output_directory, f"{sanitized_filename}.pdf")) # type: ignore
+        move_file(txt_file_path, os.path.join(output_directory, f"{sanitized_filename}.txt")) # type: ignore
         
         logger.info(f"Finished loading and processing PDF file from path: {file_path}")
     except Exception as e:

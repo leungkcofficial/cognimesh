@@ -11,7 +11,9 @@ from logger import setup_logger
 logger = setup_logger(__name__)
 
 # Get environment variables
-OUTPUT_DIR = os.getenv('OUTPUT_DIR')
+output_dir = os.getenv('OUTPUT_DIR')
+if not output_dir or not os.path.isdir(output_dir):
+    logger.error('Output path invalid.')
 
 def load_docx(file_path, summarize_ratio=0.2):
     try:
@@ -25,7 +27,7 @@ def load_docx(file_path, summarize_ratio=0.2):
         docx_filename = os.path.basename(file_path)
         filename, _ = os.path.splitext(docx_filename)
         sanitized_filename = sanitize_filename(filename)
-        txt_file_path = os.path.join(OUTPUT_DIR, f"{sanitized_filename}.txt")
+        txt_file_path = os.path.join(output_dir, f"{sanitized_filename}.txt") # type: ignore
         save_file(txt_file_path, text_content)
 
         logger.info(f"Saved text content to {txt_file_path}")

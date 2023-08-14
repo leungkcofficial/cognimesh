@@ -13,9 +13,7 @@ logger = setup_logger(__name__)
 # Create a OpenAIBrain instance
 brain = OpenAIBrain()
 
-def process_and_summarize_chunks(splits, prompt_input,
-                                 model="gpt-4-32k",
-                                 summarize_ratio = 0.2, attempt_limit = 5):
+def process_and_summarize_chunks(splits, prompt_input, summarize_ratio = 0.2, attempt_limit = 5):
     note_chunks = []
     try:
         for text_chunk in splits:
@@ -43,7 +41,7 @@ def process_and_summarize_chunks(splits, prompt_input,
         while summary is None and attempts < attempt_limit:
             summary = brain.generate_response(final_notes_prompt, 
                                               notes,
-                                              model=model,
+                                              model="gpt-3.5-turbo-16k",
                                               max_tokens=max_tokens)
             attempts += 1
         
@@ -56,7 +54,7 @@ def process_and_summarize_chunks(splits, prompt_input,
         logger.error(f"Error during processing and summarizing chunks. Error: {str(e)}")
         raise
 
-def summarize(input_path, summerize_prompt_input, chunk_size = 3000, chunk_overlap = 200, summarize_ratio = 0.2):
+def summarize(input_path, summerize_prompt_input, chunk_size = 7000, chunk_overlap = 200, summarize_ratio = 0.2):
     try:
         text = open_file(input_path)
         logger.info(f"Opened input file: {input_path}")

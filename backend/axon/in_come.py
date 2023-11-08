@@ -5,6 +5,7 @@ from langchain.text_splitter import RecursiveCharacterTextSplitter
 from logger import setup_logger
 import os
 from pydantic import BaseModel, Field
+from ..settings.backend_setting import Setting, PGDocStore
 from uuid import UUID
 from file_utils import open_file, get_file_size, compute_sha1_from_file, sanitize_filename, vector_id_from_sha1
 
@@ -62,9 +63,43 @@ class File(BaseModel):
                 self.file_size = get_file_size(tmp_file.name)
                 # Set file_sha1 attribute
                 self.file_sha1 = compute_sha1_from_file(tmp_file.name)
-                # # Set vectors_ids attribute
-                # self.vectors_ids = vector_id_from_sha1(self.file_sha1)
                 os.remove(tmp_file.name)  
+            
+    def check_duplicate_in_db(self):
+        """
+        Check if a file with the same SHA1 hash already exists in the database.
+
+        Returns:
+            bool: True if a duplicate exists, False otherwise.
+        """
+        pg_store = PGDocStore()  # Initialize your database connection handler
+        try:
+            cur = pg_store.get_cursor()
+            cur.execute("SELECT doc_id FROM documents WHERE file_sha1 = %s", (self.file_sha1,))
+            duplicate = cur.fetchone()
+            return duplicate is not None
+        except Exception as e:
+            logger.error(f"Error checking for duplicate: {e}")
+            return False
+        finally:
+            pg_store.close_connection()  # Ensure the connection is closed after checking
+            
+    def process_file(self, loader_class):
+        """
+        Process the file: check for duplicates, upload, and embed if necessary.
+
+        Args:
+            loader_class (class): The class of the loader to use to load the file
+        """
+        self.import_path(self.file_path, self.chunk_size, self.chunk_overlap)
+        self.compute_sha1()
+
+        if self.check_duplicate_in_db():
+            logger.info(f"Duplicate file detected with SHA1 {self.file_sha1}. Skipping upload and embedding.")
+            return
+
+        logger.info(f"No duplicate found for SHA1 {self.file_sha1}. Proceeding with upload and embedding.")
+        self.compute_documents(loader_class)
             
     def compute_documents(self, loader_class):
         """
@@ -92,47 +127,4 @@ class File(BaseModel):
 
         self.documents = text_splitter.split_documents(documents)
     
-    # def set_file_name(self, name: str):
-    #     self.file_name = name
-    
-    # def file_is_empty(self):
-    #     """
-    #     Check if file is empty by checking if the file pointer is at the beginning of the file
-    #     """
-    #     return self.file.size < 1  # pyright: ignore reportPrivateUsage=none
-    
-      
-    # def add_file_to_db(self):
-    #     load_dotenv(find_dotenv())
-    #     host= os.getenv('PG_HOST')
-    #     port= os.getenv('PG_PORT')
-    #     user= os.getenv('PG_USER')
-    #     password= os.getenv('PG_PASS')
-    #     dbname= 'cognimesh'
 
-    #     CONNECTION_STRING = f"postgresql+psycopg2://{user}:{password}@{host}:{port}/{dbname}?client_encoding=utf8"
-    
-    #     # Set up engine and session
-    #     engine = create_engine(CONNECTION_STRING)
-    #     Session = sessionmaker(bind=engine)
-        
-    #     try:
-    #         sql = """
-    #                 INSERT INTO documents (file_name, file_size, file_sha1, file_extension, content)
-    #                 VALUES (:file_name, :file_size, :file_sha1, :file_extension, :content);
-    #             """
-    #         params = {"file_name": self.file_name,
-    #                 "file_size": self.file_size,
-    #                 "file_sha1": self.file_sha1,
-    #                 "file_extension": self.file_extension,
-    #                 "content": self.content
-    #                 }
-    #         Session.execute(sql, params)
-    #                 # Commit the changes to the database
-    #         Session.commit()
-
-    #     except Exception as e:
-    #         print(f"An error occurred: {e}")
-    #         Session.rollback()  # Rollback any changes in case of error
-    #     finally:
-    #         Session.close()  # Close the session

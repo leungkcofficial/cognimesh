@@ -3,7 +3,6 @@ from dotenv import load_dotenv
 import os
 import psycopg2
 import numpy as np
-from ..axon.in_come import File
 from psycopg2.extras import register_uuid
 import uuid
 
@@ -41,55 +40,16 @@ class PGDocStore:
             self.doc_table = "documents"
             self.vec_table = "vectors"
     
-    def add_document(self, file:File):
-        conn = self.conn
-        # Create a cursor object
-        cur = conn.cursor()
-        with conn.cursor() as cur:
-            try:
-                cur.execute("""INSERT INTO documents (file_path, file_name, file_size, file_sha1, file_extension, chunk_size, chunk_overlap) 
-                           VALUES (%s, %s, %s, %s, %s, %s, %s) RETURNING doc_id""", 
-                           (file.file_path, file.file_name, file.file_size, file.file_sha1, file.file_extension, file.chunk_size, file.chunk_overlap))
-                doc_id = cur.fetchone()[0]
-                conn.commit()
-                return doc_id
-            except Exception as e:
-                conn.rollback()
-                logger.error(f"An error occurred while adding document: {e}")
-                raise
-            
-    def add_vectors(self, doc_id, embed):
-        conn = self.conn
-        with conn.cursor() as cur:
-            vector_ids = []  # To store the generated vector UUIDs
-            template = """INSERT INTO vectors (vector_id, doc_id, vector_index, embeddings, created_at)
-                          VALUES (%s, %s, %s, %s, CURRENT_TIMESTAMP) RETURNING vector_id"""
-            try:
-                for vector_index, vector_data in enumerate(embed):
-                    # Convert the NumPy array to a Python list
-                    vector_data_list = vector_data.tolist() if isinstance(vector_data, np.ndarray) else vector_data
-                    vector_id = uuid.uuid4()
-                    cur.execute(template, (vector_id, doc_id, vector_index, vector_data_list))
-                    vector_ids.append(cur.fetchone()[0])  # Fetch the returned vector_id
-                conn.commit()
-                return vector_ids
-            except Exception as e:
-                conn.rollback()
-                logger.error(f"An error occurred while adding vectors: {e}")
-                raise
+    def get_cursor(self):
+        # Ensure the connection is alive
+        self.ensure_connection()
+        return self.conn.cursor()
+    
+    def commit(self):
+        self.conn.commit()
 
-    def update_document_vectors(self, doc_id, vector_ids):
-        conn = self.conn
-        with conn.cursor() as cur:
-            try:
-                # No need to convert to string or use ARRAY construction, psycopg2 can handle list of UUIDs
-                cur.execute("""UPDATE documents SET vectors_ids = %s WHERE doc_id = %s""",
-                            (vector_ids, doc_id))
-                conn.commit()
-            except Exception as e:
-                conn.rollback()
-                logger.error(f"An error occurred while updating document vectors: {e}")
-                raise
+    def rollback(self):
+        self.conn.rollback()
 
     def ensure_connection(self):
         if self.conn.closed:

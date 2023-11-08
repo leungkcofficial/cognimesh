@@ -39,9 +39,7 @@ CREATE TABLE IF NOT EXISTS documents (
     chunk_size INT DEFAULT 500, -- To store the chunk size
     chunk_overlap INT DEFAULT 0, -- To store the chunk overlap size
     content TEXT,
-    date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    doi VARCHAR(255), -- To store the DOI of the document
-    isbn VARCHAR(17) -- To store the ISBN of the document
+    date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 -- Create the 'vectors' table

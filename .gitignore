@@ -1,7 +1,6 @@
 .env
 output/
 input/
-vectors/
 logs/
 backup/
 *.log

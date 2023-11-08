@@ -11,6 +11,9 @@ import pdfplumber
 from pdf2image import convert_from_path
 import pytesseract
 
+from langchain.document_loaders import PDFPlumberLoader, PyPDFLoader
+from langchain.text_splitter import TokenTextSplitter
+
 # Import setup_logger from logger.py
 from logger import setup_logger
 from gpt2brain import OpenAIBrain
@@ -42,6 +45,8 @@ def convert_pdf_to_txt(path, ocr_threshold=0.8):
     except Exception as e:
         logger.error(f"Error occurred while converting PDF to text: {e}")
     return text
+
+
 
 def extract_doi_from_text(text):
     try:

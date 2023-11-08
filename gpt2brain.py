@@ -13,7 +13,7 @@ class OpenAIBrain:
             raise ValueError("Please set the OpenAI API key in the environment variables.")
         openai.api_key = api_key
 
-    def generate_response(self, prompt_input, user_input, model="gpt-3.5-turbo", temperature=0.7, 
+    def generate_response(self, prompt_input, user_input, model="gpt-3.5-turbo-16k", temperature=0.7, 
                           max_tokens=2000, frequency_penalty=0, presence_penalty=0):
         if not prompt_input or not user_input:
             raise ValueError("Prompt input and user input should not be empty.")

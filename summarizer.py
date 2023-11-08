@@ -54,7 +54,7 @@ def process_and_summarize_chunks(splits, prompt_input, summarize_ratio = 0.2, at
         logger.error(f"Error during processing and summarizing chunks. Error: {str(e)}")
         raise
 
-def summarize(input_path, summerize_prompt_input, chunk_size = 7000, chunk_overlap = 200, summarize_ratio = 0.2):
+def summarize(input_path, summerize_prompt_input, chunk_size = 10000, chunk_overlap = 200, summarize_ratio = 0.2):
     try:
         text = open_file(input_path)
         logger.info(f"Opened input file: {input_path}")

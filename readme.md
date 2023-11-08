@@ -27,6 +27,19 @@ Updated 11/7/2023:
 [yt_loader](yt_loader.py)
 
 
+## Postgresql + vector store
+1. Create a database in your postgresql instance (I use the name cognimesh)
+```bash
+export PGPASSWORD=<your_password>
+psql -U postgres -h <hostname>
+```
+```sql
+CREATE DATABASE cognimesh;
+CREATE USER <your-username> WITH PASSWORD <your-password> SUPERUSER;
+GRANT ALL PRIVILEGES ON DATABASE cognimesh TO <your-username>;
+```
+2. 
+
 
 
 

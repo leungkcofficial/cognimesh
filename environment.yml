@@ -160,8 +160,9 @@ dependencies:
       - jsonschema==4.17.3
       - jupyterlab-widgets==3.0.7
       - kiwisolver==1.4.4
-      - langchain==0.0.194
+      - langchain==0.0.267
       - langchainplus-sdk==0.0.6
+      - langsmith==0.0.24
       - layoutparser==0.3.4
       - linkify-it-py==2.0.2
       - lit==16.0.5.post0
@@ -216,11 +217,13 @@ dependencies:
       - pdfminer-six==20221105
       - pdfplumber==0.9.0
       - peft==0.4.0.dev0
+      - pgvector==0.2.1
       - pillow==9.5.0
       - pinecone-client==2.2.2
       - portalocker==2.7.0
       - posthog==3.0.1
       - protobuf==3.20.0
+      - psycopg2-binary==2.9.7
       - pulp==2.7.0
       - pulsar-client==3.2.0
       - pyarrow==12.0.0

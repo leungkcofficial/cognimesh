@@ -1,6 +1,8 @@
 import os
 import re
 import shutil
+import hashlib
+import uuid
 from logger import setup_logger
 
 # Create a logger for this module
@@ -68,3 +70,21 @@ def rename_file(old_path: str, new_path: str) -> None:
     except Exception as e:
         logger.error(f"Error renaming file from {old_path} to {new_path}. Error: {str(e)}")
         raise
+
+def get_file_size(source_filepath: str) -> int:
+    """Get the size of the file in bytes."""
+    if not os.path.isfile(source_filepath):
+        raise ValueError(f"{source_filepath} is not a valid file.")
+    return os.path.getsize(source_filepath)
+
+def compute_sha1_from_file(source_filepath: str):
+    with open(source_filepath, "rb") as file:
+        bytes = file.read()
+        readable_hash = compute_sha1_from_content(bytes)
+    return readable_hash
+
+def compute_sha1_from_content(content):
+    return hashlib.sha1(content).hexdigest()
+
+def vector_id_from_sha1(sha1: str) -> uuid.UUID:
+    return uuid.UUID(sha1[:32])

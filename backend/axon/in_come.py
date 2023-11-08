@@ -5,9 +5,9 @@ from langchain.text_splitter import RecursiveCharacterTextSplitter
 from logger import setup_logger
 import os
 from pydantic import BaseModel, Field
-from ..settings.backend_setting import PGDocStore, store
+from ..settings.backend_setting import store
 from uuid import UUID
-from file_utils import open_file, get_file_size, compute_sha1_from_file, sanitize_filename, vector_id_from_sha1
+from ..axon.file_utils import open_file, get_file_size, compute_sha1_from_file, sanitize_filename, vector_id_from_sha1
 
 logger = setup_logger(__name__)
 

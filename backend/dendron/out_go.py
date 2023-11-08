@@ -1,7 +1,6 @@
 from backend.axon.in_come import File
 from backend.settings.backend_setting import store
 from backend.neuron.neuron import Memory, Cognition
-from langchain.document_loaders import PDFPlumberLoader
 from logger import setup_logger
 
 

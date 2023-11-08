@@ -5,7 +5,7 @@ from langchain.text_splitter import RecursiveCharacterTextSplitter
 from logger import setup_logger
 import os
 from pydantic import BaseModel, Field
-from ..settings.backend_setting import Setting, PGDocStore
+from ..settings.backend_setting import PGDocStore, store
 from uuid import UUID
 from file_utils import open_file, get_file_size, compute_sha1_from_file, sanitize_filename, vector_id_from_sha1
 
@@ -72,9 +72,10 @@ class File(BaseModel):
         Returns:
             bool: True if a duplicate exists, False otherwise.
         """
-        pg_store = PGDocStore()  # Initialize your database connection handler
+        # pg_store = PGDocStore()  # Initialize your database connection handler
+        cur = None  # Initialize cur to None
         try:
-            cur = pg_store.get_cursor()
+            cur = store.get_cursor()
             cur.execute("SELECT doc_id FROM documents WHERE file_sha1 = %s", (self.file_sha1,))
             duplicate = cur.fetchone()
             return duplicate is not None
@@ -82,7 +83,7 @@ class File(BaseModel):
             logger.error(f"Error checking for duplicate: {e}")
             return False
         finally:
-            pg_store.close_connection()  # Ensure the connection is closed after checking
+            cur.close()  # Ensure the connection is closed after checking
             
     def process_file(self, loader_class):
         """

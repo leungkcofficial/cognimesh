@@ -1,5 +1,5 @@
 from backend.axon.in_come import File
-from backend.settings.backend_setting import PGDocStore
+from backend.settings.backend_setting import store
 from backend.neuron.neuron import Memory, Cognition
 from langchain.document_loaders import PDFPlumberLoader
 from logger import setup_logger
@@ -20,8 +20,8 @@ def process_file(path: str,
         cognition = Cognition()
         embed = cognition.create_vector(file=file, loader_class=loader_class)
 
-        store = PGDocStore()
-        memory = Memory(store)
+        # store = PGDocStore()
+        memory = Memory()
 
         # Add document metadata and vector embeddings to the database
         doc_id = memory.add_document(file=file)
@@ -29,7 +29,3 @@ def process_file(path: str,
         memory.update_document_vectors(doc_id, vector_ids)
     else:
         print(f"File with SHA1 {file.file_sha1} is already processed.")
-    # cur.execute("""
-    #     INSERT INTO vector (doc_id, embeddings) VALUES (%s, %s)
-    # """, (doc_id, vector.tolist()))
-    # return file

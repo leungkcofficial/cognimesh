@@ -4,7 +4,7 @@ from pydantic import BaseModel
 from langchain.embeddings.openai import OpenAIEmbeddings
 from logger import setup_logger
 from typing import List
-from ..settings.backend_setting import Setting, PGDocStore
+from ..settings.backend_setting import Setting, store
 from ..axon.in_come import File
 
 logger = setup_logger(__name__)
@@ -22,11 +22,11 @@ class Cognition(BaseModel):
     # def duplicate_file_exist(self, file: File):
 
 class Memory:
-    def __init__(self, pg_doc_store: PGDocStore):
-        self.pg_doc_store = pg_doc_store
+    def __init__(self):
+        self.doc_store = store
         
     def add_document(self, file: File):
-        cur = self.pg_doc_store.get_cursor()
+        cur = self.doc_store.get_cursor()
         try:
             cur.execute("""
                 INSERT INTO documents (file_path, file_name, file_size, file_sha1, file_extension, chunk_size, chunk_overlap)
@@ -41,16 +41,16 @@ class Memory:
                 file.chunk_overlap
             ))
             file.doc_id = cur.fetchone()[0]
-            self.pg_doc_store.commit()
+            self.doc_store.commit()
         except Exception as e:
-            self.pg_doc_store.rollback()
+            self.doc_store.rollback()
             raise e
         finally:
             cur.close()
         return file.doc_id
 
     def add_vectors(self, file: File, embed: List):
-        cur = self.pg_doc_store.get_cursor()
+        cur = self.doc_store.get_cursor()
         vector_ids = []
         try:
             for vector_index, vector_data in enumerate(embed):
@@ -65,24 +65,24 @@ class Memory:
                     vector_index,
                     vector_data
                 ))
-            self.pg_doc_store.commit()
+            self.doc_store.commit()
         except Exception as e:
-            self.pg_doc_store.rollback()
+            self.doc_store.rollback()
             raise e
         finally:
             cur.close()
         return vector_ids
 
     def update_document_vectors(self, doc_id, vector_ids: List[uuid.UUID]):
-        cur = self.pg_doc_store.get_cursor()
+        cur = self.doc_store.get_cursor()
         try:
             # Execute the SQL command, passing the list of UUIDs directly
             cur.execute("""
                 UPDATE documents SET vectors_ids = %s WHERE doc_id = %s
             """, (vector_ids, doc_id))
-            self.pg_doc_store.commit()
+            self.doc_store.commit()
         except Exception as e:
-            self.pg_doc_store.rollback()
+            self.doc_store.rollback()
             raise e
         finally:
             cur.close()

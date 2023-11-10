@@ -1,7 +1,8 @@
 # plugins/zotero_connect.py
 
 from ..settings.plugin import PluginInterface
-from ..settings.backend_setting import store  # Import store to access the database connection
+from ..settings.storage import store# Import store to access the database connection
+from typing import Any, Optional, List
 from logger import setup_logger
 import os
 import json

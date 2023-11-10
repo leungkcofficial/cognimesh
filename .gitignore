@@ -3,5 +3,6 @@ output/
 input/
 logs/
 backup/
+dump/
 *.log
 *.zip

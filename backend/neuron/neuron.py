@@ -1,22 +1,21 @@
 import os
 import uuid
 from pydantic import BaseModel
-from langchain.embeddings.openai import OpenAIEmbeddings
 from logger import setup_logger
 from typing import List
-from ..settings.backend_setting import Setting, store, embedding
+# Importing from the new module files
+from ..settings.storage import store
+from ..settings.embedding import embedding
 from ..axon.in_come import File
 
 logger = setup_logger(__name__)
-# Read local .env file
 
 class Cognition(BaseModel):
-    def create_vector(self, file: File, loader_class) -> OpenAIEmbeddings:
+    def create_vector(self, file: File, loader_class):
         file.compute_documents(loader_class)
         embed = embedding.embed_documents([doc.page_content for doc in file.documents])
         return embed
 
-    # def duplicate_file_exist(self, file: File):
 
 class Memory:
     def __init__(self):

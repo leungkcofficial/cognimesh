@@ -131,3 +131,75 @@ class ZoteroConnect(PluginInterface):
             db_connection.rollback()
             logger.error(f"Failed to delete ZoteroConnect plugin tables: {e}")
             raise e
+        
+    def fetch_crossref_data(self, doi: str) -> Optional[dict]:
+        """
+        Retrieve metadata for a given DOI from the CrossRef API.
+
+        Args:
+            doi (str): The DOI of the journal article to fetch metadata for.
+
+        Returns:
+            dict: The metadata retrieved from CrossRef API, or None if an error occurs.
+        """
+        crossref_url = f"https://api.crossref.org/works/{doi}"
+        try:
+            response = requests.get(crossref_url)
+            response.raise_for_status()  # This will raise an exception for HTTP errors
+            return response.json()
+        except requests.RequestException as e:
+            self.logger.error(f'Failed to fetch data from CrossRef for DOI: {doi} with error: {e}')
+            return None
+
+    def fetch_and_store_article_metadata(self, doc_id: str):
+        """
+        Fetch metadata for a journal article using its document ID, retrieves the DOI using vector search,
+        fetches metadata from CrossRef API, and stores the metadata in the zotero_articles table.
+
+        Args:
+            doc_id (str): The document ID of the journal article.
+
+        Raises:
+            Exception: If any step in the process fails.
+        """
+        # Use the database connection from the store
+        conn = self.store.connection
+        cursor = conn.cursor()
+
+        try:
+            # Retrieve vector_id from the documents table
+            cursor.execute("SELECT vector_id FROM documents WHERE doc_id = %s;", (doc_id,))
+            vector_id = cursor.fetchone()
+
+            if not vector_id:
+                raise ValueError(f"No vector_id found for doc_id: {doc_id}")
+
+            # Retrieve the vector from the vectors table
+            cursor.execute("SELECT vector FROM vectors WHERE id = %s;", (vector_id,))
+            vector = cursor.fetchone()
+
+            if not vector:
+                raise ValueError(f"No vector found for vector_id: {vector_id}")
+
+            # Placeholder for vector search to find the DOI
+            # This will depend on your specific implementation
+            doi = self.perform_vector_search_for_doi(vector)
+
+            # Fetch metadata from CrossRef API using the DOI
+            metadata = self.fetch_crossref_data(doi)
+
+            if metadata is None:
+                raise ValueError(f"No metadata found for DOI: {doi}")
+
+            # Store the metadata in the zotero_articles table
+            cursor.execute(
+                "UPDATE zotero_articles SET metadata = %s WHERE doc_id = %s;",
+                (json.dumps(metadata), doc_id)
+            )
+            conn.commit()
+        except (ValueError, DatabaseError) as e:
+            conn.rollback()
+            self.logger.error(f'Error fetching and storing metadata for doc_id: {doc_id} with error: {e}')
+            raise e
+        finally:
+            cursor.close()

@@ -6,6 +6,7 @@ import numpy as np
 from psycopg2.extras import register_uuid
 import uuid
 import openai
+from langchain.embeddings.openai import OpenAIEmbeddings
 
 logger = setup_logger(__name__)
 
@@ -17,6 +18,13 @@ class Setting:
         # Load environment variables from .env file
         load_dotenv(os.path.join(os.path.dirname(__file__), '../.env'))
         # Store OpenAI api key, may add other LLM support later
+        
+        # Load embedding model setting
+        self.embedding_model = os.getenv('EMBEDDING_MODEL')
+        if self.embedding_model not in ['openai', 'other_model']:  # Add other models as needed
+            logger.error("Unsupported embedding model in .env file.")
+            raise EnvironmentError("Unsupported embedding model in .env file.")
+        
         self.openai_api_key = os.getenv('OPENAI_API_KEY')
         if not self.openai_api_key:
             logger.error("OPENAI_API_KEY is not set in the .env file.")
@@ -97,6 +105,31 @@ class PGDocStore:
     def close_connection(self):
         self.connection.close()
 
+    def similarity_search(self, query_embedding, match_threshold=0.8, match_count=5):
+        """
+        Perform a similarity search in the database using vector embeddings.
+
+        Args:
+            query_embedding (list): The embedding vector of the query document.
+            match_threshold (float): The threshold for matching similarity (default is 0.8).
+            match_count (int): The number of matches to return (default is 5).
+
+        Returns:
+            list: A list of tuples containing matched document IDs, content, and similarity scores.
+
+        Raises:
+            psycopg2.DatabaseError: If a database error occurs.
+        """
+        try:
+            with self.connection.cursor() as cursor:
+                # Call the match_documents function in the database
+                cursor.callproc('match_documents', [query_embedding, match_threshold, match_count])
+                matches = cursor.fetchall()
+                return matches
+        except psycopg2.DatabaseError as e:
+            logger.error(f"Database error during similarity search: {e}")
+            raise e
+
 class Store:
     def __init__(self):
         config = DatabaseConfig.get_database_config()
@@ -106,6 +139,38 @@ class Store:
 
     def get_db(self):
         return self.db
-    
+
+class EmbeddingService:
+    def __init__(self, setting: Setting):
+        self.setting = setting
+        if self.setting.embedding_model == 'openai':
+            self.embedder = OpenAIEmbeddings(openai_api_key=self.setting.openai_api_key)
+        # Add other models here
+        else:
+            logger.error(f"Unsupported embedding model: {self.setting.embedding_model}")
+            raise NotImplementedError(f"Embedding model {self.setting.embedding_model} is not implemented")
+
+    def embed_documents(self, documents):
+        """
+        Embeds the given documents using the selected embedding model.
+
+        Args:
+            documents (List[str]): A list of document texts to be embedded.
+
+        Returns:
+            List: A list of embedding vectors for the provided documents.
+
+        Raises:
+            Exception: If an error occurs during the embedding process.
+        """
+        try:
+            return self.embedder.embed_documents(documents)
+        except Exception as e:
+            logger.error(f"Error during document embedding: {e}")
+            raise e
+
+setting = Setting()
 # Global store instance
 store = Store().get_db()
+# Global embedding instance
+embedding = EmbeddingService(setting)

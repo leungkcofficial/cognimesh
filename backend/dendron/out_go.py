@@ -1,5 +1,6 @@
 from backend.axon.in_come import File
-from backend.neuron.neuron import Memory, Cognition
+from backend.neuron.memory import Memory #, Cognition
+from backend.neuron.cognition import Cognition
 from logger import setup_logger
 
 
@@ -16,7 +17,7 @@ def process_file(path: str,
     if not file.check_duplicate_in_db():
     # If not, process the file
         cognition = Cognition()
-        embed = cognition.create_vector(file=file, loader_class=loader_class)
+        embed = cognition.embed_file(file=file, loader_class=loader_class)
 
         # store = PGDocStore()
         memory = Memory()

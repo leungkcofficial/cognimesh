@@ -5,26 +5,6 @@ from psycopg2.extras import register_uuid
 
 logger = setup_logger(__name__)
 
-# # Load environment variables from .env file
-# load_dotenv(os.path.join(os.path.dirname(__file__), '../.env'))
-
-# class DatabaseConfig:
-#     DATABASE = os.getenv('DATABASE')
-
-#     @staticmethod
-#     def get_database_config():
-#         if DatabaseConfig.DATABASE == 'pg':
-#             return {
-#                 'host': os.getenv('PG_HOST'),
-#                 'port': os.getenv('PG_PORT'),
-#                 'user': os.getenv('PG_USER'),
-#                 'password': os.getenv('PG_PASS'),
-#                 'dbname': 'cognimesh'
-#             }
-#         # Add other database configurations as elif statements
-#         else:
-#             raise ValueError("Unsupported database type")
-
 class PGDocStore:    
     def __init__(self, config):
         self.config = config
@@ -78,6 +58,59 @@ class PGDocStore:
         except psycopg2.DatabaseError as e:
             logger.error(f"Database error during similarity search: {e}")
             raise e
+    
+    def retrieve_embeddings(self, doc_id):
+        """
+        Retrieves all embeddings associated with a specific document.
+
+        Args:
+            doc_id (UUID): The unique identifier of the document.
+
+        Returns:
+            list: A list of embeddings associated with the document.
+        """
+        cur = self.get_cursor()
+        embeddings = []
+        try:
+            cur.execute("""
+                SELECT embeddings FROM vectors WHERE doc_id = %s
+            """, (doc_id,))
+            rows = cur.fetchall()
+            embeddings = [row[0] for row in rows]
+        except Exception as e:
+            self.rollback()
+            raise e
+        finally:
+            cur.close()
+        return embeddings
+    
+    def retrieve_chunks(self, doc_id):
+        """
+        Retrieves file_path, chunk_size, and chunk_overlap for a given document.
+
+        Args:
+            doc_id (UUID): The unique identifier of the document.
+
+        Returns:
+            dict: A dictionary containing file_path, chunk_size, and chunk_overlap.
+        """
+        cur = self.get_cursor()
+        try:
+            cur.execute("SELECT file_path, chunk_size, chunk_overlap FROM documents WHERE doc_id = %s", (doc_id,))
+            result = cur.fetchone()
+            if result:
+                return {
+                    'file_path': result[0],
+                    'chunk_size': result[1],
+                    'chunk_overlap': result[2]
+                }
+            else:
+                raise ValueError(f"Document with doc_id {doc_id} not found")
+        except Exception as e:
+            logger.error(f"Error retrieving chunks for doc_id {doc_id}: {e}")
+            raise e
+        finally:
+            cur.close()
 
 class Store:
     """

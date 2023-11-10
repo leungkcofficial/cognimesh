@@ -46,8 +46,6 @@ def convert_pdf_to_txt(path, ocr_threshold=0.8):
         logger.error(f"Error occurred while converting PDF to text: {e}")
     return text
 
-
-
 def extract_doi_from_text(text):
     try:
         logger.info(f"Extracting DOI from text")

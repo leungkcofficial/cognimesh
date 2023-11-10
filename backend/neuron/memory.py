@@ -73,6 +73,47 @@ class Memory:
         finally:
             cur.close()
 
+    def update_file_content(self, doc_id, file_content):
+        """
+        Updates the file_content of a document in the database.
+
+        Args:
+            doc_id (UUID): The unique identifier of the document.
+            file_content (str): The text content to be saved in the file_content column.
+        """
+        cur = self.store.get_cursor()
+        try:
+            cur.execute("""
+                UPDATE documents SET content = %s WHERE doc_id = %s
+            """, (file_content, doc_id))
+            self.store.commit()
+        except Exception as e:
+            self.store.rollback()
+            raise e
+        finally:
+            cur.close()
+    
+    def retrieve_doc_id(self, sha1):
+        """
+        Retrieves the document ID for a given SHA-1 hash value.
+
+        Args:
+            sha1 (str): The SHA-1 hash value of the document.
+
+        Returns:
+            UUID: The unique identifier of the document if found, otherwise None.
+        """
+        try:
+            doc_id = self.store.retrieve_doc_id(sha1)
+            if doc_id:
+                return doc_id
+            else:
+                logger.info(f"No document found for SHA-1 hash {sha1}")
+                return None
+        except Exception as e:
+            logger.error(f"An error occurred while retrieving the document ID for SHA-1 hash {sha1}: {e}")
+            return None
+    
     def retrieve_embeddings(self, doc_id):
         """
         Retrieves all embeddings for a given document ID and converts them to a 2D numpy array.
@@ -86,6 +127,34 @@ class Memory:
         embedding_strings = self.store.retrieve_embeddings(doc_id)
         embedding_arrays = [np.array(embed_str.strip('[]').split(','), dtype=float) for embed_str in embedding_strings]
         return np.vstack(embedding_arrays)
+    
+    def retrieve_file(self, doc_id):
+        """
+        Retrieves the file metadata for a given document ID.
+
+        Args:
+            doc_id (UUID): The unique identifier of the document.
+
+        Returns:
+            dict: A dictionary containing file metadata like file_path and file_extension.
+        """
+        try:
+            chunks_metadata = self.store.retrieve_chunks(doc_id)
+            file_path = chunks_metadata['file_path']
+            chunk_size = chunks_metadata['chunk_size']
+            chunk_overlap = chunks_metadata['chunk_overlap']
+            if file_path:
+                file = File()
+                file.import_path(filepath=file_path,
+                                 chunk_size=chunk_size,
+                                 chunk_overlap=chunk_overlap)
+                return file
+            else:
+                logger.error(f"No file found for doc_id {doc_id}")
+                return None
+        except Exception as e:
+            logger.error(f"An error occurred while retrieving the file for doc_id {doc_id}: {e}")
+            return None
     
     def retrieve_chunk(self, doc_id, chunk_index, loader_class):
         """

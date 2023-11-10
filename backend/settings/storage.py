@@ -59,6 +59,33 @@ class PGDocStore:
             logger.error(f"Database error during similarity search: {e}")
             raise e
     
+    def retrieve_doc_id(self, sha1):
+        """
+        Retrieves the document ID for a given SHA-1 hash value.
+
+        Args:
+            sha1 (str): The SHA-1 hash value of the document.
+
+        Returns:
+            UUID: The unique identifier of the document if found, otherwise None.
+        """
+        cur = self.get_cursor()
+        try:
+            cur.execute("""
+                SELECT doc_id FROM documents WHERE file_sha1 = %s
+            """, (sha1,))
+            result = cur.fetchone()
+            if result:
+                return result[0]
+            else:
+                logger.info(f"No document found for SHA-1 hash {sha1}")
+                return None
+        except Exception as e:
+            logger.error(f"Error retrieving document ID for SHA-1 hash {sha1}: {e}")
+            raise e
+        finally:
+            cur.close()
+    
     def retrieve_embeddings(self, doc_id):
         """
         Retrieves all embeddings associated with a specific document.

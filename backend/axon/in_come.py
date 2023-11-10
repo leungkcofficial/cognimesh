@@ -114,10 +114,9 @@ class File(BaseModel):
         """
 
         documents = []
-        with tempfile.NamedTemporaryFile(
-            delete=False,
-            suffix=self.file_name,  # pyright: ignore reportPrivateUsage=none
-        ) as tmp_file:
+        with tempfile.NamedTemporaryFile(delete=False,
+                                         suffix=self.file_name,  # pyright: ignore reportPrivateUsage=none
+                                         ) as tmp_file:
             tmp_file.write(self.content)  # pyright: ignore reportPrivateUsage=none
             tmp_file.flush()
             loader = loader_class(tmp_file.name)

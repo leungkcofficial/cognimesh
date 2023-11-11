@@ -139,6 +139,37 @@ class PGDocStore:
         finally:
             cur.close()
 
+    def retrieve_content(self, doc_id):
+        """
+        Retrieves the content of a document given its document ID.
+
+        Args:
+            doc_id (UUID): The unique identifier of the document.
+
+        Returns:
+            str: The content of the document, or None if not found.
+
+        Raises:
+            Exception: If an error occurs during database operation.
+        """
+        cur = self.get_cursor()
+        try:
+            cur.execute("""
+                SELECT content FROM documents WHERE doc_id = %s;
+            """, (doc_id,))
+            result = cur.fetchone()
+            if result:
+                return result[0]
+            else:
+                logger.info(f"No content found for doc_id {doc_id}")
+                return None
+        except Exception as e:
+            logger.error(f"Error retrieving content for doc_id {doc_id}: {e}")
+            raise e
+        finally:
+            cur.close()
+
+
 class Store:
     """
     This class manages the database connections and operations.

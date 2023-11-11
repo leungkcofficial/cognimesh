@@ -1,6 +1,8 @@
 import openai
 from ..settings.settings import Setting
 from logger import setup_logger
+import asyncio
+from ..axon.file_utils import sanitize_filename, open_file, save_file, move_file, delete_file, copy_file, rename_file
 
 logger = setup_logger(__name__)
 
@@ -11,28 +13,26 @@ class Brain:
         openai.api_key = self.api_key
         logger.info("Brain initialized with OpenAI API key.")
 
-    def query(self, model, prompt, is_chat_model=False, **kwargs):
-        """
-        Sends a query to the specified LLM using OpenAI's API.
-
-        Args:
-            model (str): The model to use for the query.
-            prompt (str): The prompt to send to the model.
-            is_chat_model (bool): True if the model is a chat model, False otherwise.
-            **kwargs: Additional arguments to pass to the OpenAI API.
-
-        Returns:
-            The response from the LLM.
-        """
+    async def _query_api(self, model, prompt, is_chat_model=False, **kwargs):
+        """Internal method to perform the actual query to the OpenAI API."""
         try:
             if is_chat_model:
-                logger.info(f"Sending chat query to OpenAI model {model}.")
-                response = openai.ChatCompletion.create(model=model, messages=[{"role": "user", "content": prompt}], **kwargs)
+                return openai.ChatCompletion.create(
+                    model=model, messages=[{"role": "user", "content": prompt}], **kwargs
+                )
             else:
-                logger.info(f"Sending query to OpenAI model {model}.")
-                response = openai.Completion.create(model=model, prompt=prompt, **kwargs)
-            logger.info("Query successful.")
-            return response
+                return openai.Completion.create(
+                    model=model, prompt=prompt, **kwargs
+                )
         except Exception as e:
             logger.error(f"Error querying the LLM: {e}")
             return None
+
+    async def query_async(self, model, prompt, is_chat_model=False, **kwargs):
+        # Asynchronous querying logic...
+        return await self._query_api(model, prompt, is_chat_model, **kwargs)
+    
+    def query(self, model, prompt, is_chat_model=False, **kwargs):
+        # Synchronous querying logic...
+        loop = asyncio.get_event_loop()
+        return loop.run_until_complete(self._query_api(model, prompt, is_chat_model, **kwargs))

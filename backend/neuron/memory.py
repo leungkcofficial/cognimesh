@@ -156,6 +156,31 @@ class Memory:
             logger.error(f"An error occurred while retrieving the file for doc_id {doc_id}: {e}")
             return None
     
+    def retrieve_content(self, doc_id):
+        """
+        Retrieves the content of a document from the database.
+
+        Args:
+            doc_id (UUID): The unique identifier of the document.
+
+        Returns:
+            str: The content of the document, or None if not found.
+
+        Raises:
+            Exception: If an error occurs during the retrieval process.
+        """
+        try:
+            content = self.store.retrieve_content(doc_id)
+            if content is not None:
+                logger.info(f"Content retrieved for doc_id {doc_id}")
+                return content
+            else:
+                logger.warning(f"No content found for doc_id {doc_id}")
+                return None
+        except Exception as e:
+            logger.error(f"Error retrieving content for doc_id {doc_id}: {e}")
+            raise e
+    
     def retrieve_chunk(self, doc_id, chunk_index, loader_class):
         """
         Retrieve and return a specific chunk from a document using its doc_id.

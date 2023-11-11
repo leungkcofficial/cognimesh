@@ -11,7 +11,6 @@ from logger import setup_logger
 
 logger = setup_logger(__name__)
 
-
 def retrieve_and_verify_pdf(doc_id):
     memory = Memory()
     file_data = memory.retrieve_file(doc_id)
@@ -75,5 +74,6 @@ def process_pdf(file_path: str,
         memory.update_file_content(doc_id, pdf_text)
 
         print("PDF processing completed and content updated in database.")
+        return doc_id
     else:
         print("Error in processing PDF file.")

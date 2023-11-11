@@ -3,7 +3,6 @@ from backend.neuron.memory import Memory #, Cognition
 from backend.neuron.cognition import Cognition
 from logger import setup_logger
 
-
 logger = setup_logger(__name__)
 
 def process_file(path: str,

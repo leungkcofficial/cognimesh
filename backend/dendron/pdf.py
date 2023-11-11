@@ -58,8 +58,8 @@ def convert_pdf_to_txt(file_content, ocr_threshold=0.8):
     return text
 
 def process_pdf(file_path: str,
-                chunk_size: int,
-                chunk_overlap: int,
+                chunk_size=1000,
+                chunk_overlap=50,
                 loader_class=PDFPlumberLoader):
     # Process the file and get doc_id
     doc_id = process_file(file_path, loader_class, chunk_size, chunk_overlap)
@@ -68,7 +68,6 @@ def process_pdf(file_path: str,
         # Convert PDF to text
         file = retrieve_and_verify_pdf(doc_id)
         pdf_text = convert_pdf_to_txt(file.content)
-
         # Update the content in the database
         memory = Memory()
         memory.update_file_content(doc_id, pdf_text)

@@ -1,6 +1,6 @@
 from ..settings.plugin import PluginInterface
 from ..settings.storage import store # Import store to access the database connection
-from ..axon.file_utils import sanitize_filename, open_file, save_file, move_file, delete_file, copy_file, rename_file
+from ..settings.file_utils import sanitize_filename, open_file, save_file, move_file, delete_file, copy_file, rename_file
 import asyncio
 from ..neuron.brain import Brain
 from ..neuron.memory import Memory
@@ -134,16 +134,20 @@ class DOIHandle(PluginInterface):
         except Exception as e:
             logger.error(f"Error verifying DOI {doi}: {e}")
             return False
-    
+   
     async def retrieve_doi(self, doc_id):
         """
-        Retrieves the DOI from the text content of a document.
+        Retrieves the DOI from the text content of a document or prompts the user to input one.
+
+        This method first attempts to automatically retrieve a DOI from a document. If it fails to find
+        or verify a DOI, it prompts the user to manually enter a DOI. If the user provides a DOI,
+        it attempts to verify it. If the user skips, it logs the absence of a valid DOI.
 
         Args:
             doc_id (UUID): The unique identifier of the document.
 
         Returns:
-            str: The detected DOI or None if not found.
+            str: The detected or user-input DOI, or None if not found or provided.
         """
         memory = Memory()
         brain = Brain()
@@ -157,10 +161,10 @@ class DOIHandle(PluginInterface):
 
                 # Make sure to call the query_async function correctly
                 response = await brain.query_async(model="gpt-4-1106-preview", 
-                                                   prompt=full_prompt, 
-                                                   is_chat_model=True, 
-                                                   temperature=0.7, 
-                                                   max_tokens=1000)
+                                                prompt=full_prompt, 
+                                                is_chat_model=True, 
+                                                temperature=0.7, 
+                                                max_tokens=1000)
 
                 if response:
                     doi = response['choices'][0]['message']['content'] # Logic to extract DOI from response
@@ -175,17 +179,45 @@ class DOIHandle(PluginInterface):
                                 """, (doc_id, doi))
                                 store.connection.commit()
                                 logger.info(f"Verified DOI {doi} saved for doc_id {doc_id}")
+                                return doi
                         except Exception as e:
                             store.connection.rollback()
                             logger.error(f"Error saving DOI for doc_id {doc_id}: {e}")
                     else:
                         logger.info("No valid DOI found to save.")
+                        user_provided_doi = input("Unable to find a valid DOI. Please enter a DOI manually or press Enter to skip: ")
+                        if user_provided_doi and self.verify_doi(user_provided_doi):
+                            doi = user_provided_doi
+                            try:
+                                with store.connection.cursor() as cursor:
+                                    # Insert the user-provided DOI into the database
+                                    cursor.execute("""
+                                        INSERT INTO articles_doi (doc_id, doi)
+                                        VALUES (%s, %s)
+                                        ON CONFLICT (doc_id) DO UPDATE 
+                                        SET doi = EXCLUDED.doi;
+                                    """, (doc_id, doi))
+                                    store.connection.commit()
+                                    logger.info(f"User-provided DOI {doi} saved for doc_id {doc_id}")
+                                    return doi
+                            except Exception as e:
+                                store.connection.rollback()
+                                logger.error(f"Error saving user-provided DOI for doc_id {doc_id}: {e}")
+                            # logger.info(f"User-provided DOI {doi} saved for doc_id {doc_id}")
+                            # return doi
+                        else:
+                            logger.info("No valid DOI provided by the user.")
+                            return None
+                else:
+                    logger.warning(f"No content found for doc_id {doc_id}")
+                    return None
             else:
                 logger.warning(f"No content found for doc_id {doc_id}")
-            return None
+                return None
         except Exception as e:
             logger.error(f"Error in retrieve_doi for doc_id {doc_id}: {e}")
             return None
+
     
     def retrieve_metadata(self, doi):
         """
@@ -223,22 +255,22 @@ class DOIHandle(PluginInterface):
         
     async def process_new_document(self, doc_id):
         """
-        Processes a new document by retrieving its DOI and metadata.
+        Processes a new document by retrieving its DOI and metadata. 
+
+        This method first calls retrieve_doi to get the DOI of the document. If a DOI is found,
+        it then calls retrieve_metadata to fetch and store metadata for that DOI. If the DOI retrieval
+        fails, it logs the failure.
 
         Args:
             doc_id (UUID): The unique identifier of the new document.
-
         """
         try:
-            if not self.retrieve_doi(doc_id):
+            doi = await self.retrieve_doi(doc_id)
+            if doi:
+                if not self.retrieve_metadata(doi):
+                    logger.info(f"Failed to retrieve metadata for DOI associated with doc_id {doc_id}.")
+            else:
                 logger.info(f"No DOI found or failed to retrieve for doc_id {doc_id}.")
-                return
-
-            if not self.retrieve_metadata(doc_id):
-                logger.info(f"Failed to retrieve metadata for DOI associated with doc_id {doc_id}.")
-                return
-
-            logger.info(f"Metadata stored successfully for doc_id {doc_id}.")
         except Exception as e:
             logger.error(f"Error processing new document with doc_id {doc_id}: {e}")
         finally:

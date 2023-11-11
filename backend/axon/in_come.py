@@ -6,7 +6,7 @@ from logger import setup_logger
 import os
 from pydantic import BaseModel, Field
 from uuid import UUID
-from ..axon.file_utils import open_file, get_file_size, compute_sha1_from_file, sanitize_filename, vector_id_from_sha1
+from ..settings.file_utils import open_file, get_file_size, compute_sha1_from_file, sanitize_filename, vector_id_from_sha1
 # Import the global instances from the settings modules
 from ..settings.settings import Setting
 from ..settings.storage import store

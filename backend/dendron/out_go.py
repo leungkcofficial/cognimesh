@@ -13,7 +13,7 @@ def process_file(path: str,
     file.import_path(filepath=path, chunk_size=chunk_size, chunk_overlap=chunk_overlap)
     memory = Memory()
     
-    if file.check_duplicate_in_db():
+    if memory.check_duplicate_in_db(file):
         # If the file is already processed, retrieve the corresponding doc_id
         doc_id = memory.retrieve_doc_id(file.file_sha1)
         if doc_id:

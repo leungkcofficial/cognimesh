@@ -1,7 +1,6 @@
 import uuid
 from typing import List
 from logger import setup_logger
-import numpy as np
 from ..settings.storage import store
 from ..axon.in_come import File
 
@@ -10,165 +9,106 @@ logger = setup_logger(__name__)
 class Memory:
     def __init__(self):
         self.store = store
+
+    def _execute_db_command(self, query, params):
+        """
+        Executes a database command with the provided query and parameters,
+        handling transactions and cursor management.
+        """
+        with self.store.get_cursor() as cur:
+            try:
+                cur.execute(query, params)
+                self.store.commit()
+                return cur.fetchone() if 'RETURNING' in query else None
+            except Exception as e:
+                self.store.rollback()
+                logger.error(f"Database command execution failed: {e}")
+                return None
         
-    def add_document(self, file: File):
-        cur = self.store.get_cursor()
+    def check_duplicate_in_db(self, file: File):
+        """
+        Check if a file with the same SHA1 hash already exists in the database.
+        Args:
+            file (File): The file object to check for duplicates.
+        Returns:
+            bool: True if a duplicate exists, False otherwise.
+        """
         try:
-            cur.execute("""
-                INSERT INTO documents (file_path, file_name, file_size, file_sha1, file_extension, chunk_size, chunk_overlap)
-                VALUES (%s, %s, %s, %s, %s, %s, %s) RETURNING doc_id
-            """, (
-                file.file_path,
-                file.file_name,
-                file.file_size,
-                file.file_sha1,
-                file.file_extension,
-                file.chunk_size,
-                file.chunk_overlap
-            ))
-            file.doc_id = cur.fetchone()[0]
-            self.store.commit()
+            with self.store.get_cursor() as cur:
+                cur.execute("SELECT doc_id FROM documents WHERE file_sha1 = %s", (file.file_sha1,))
+                duplicate = cur.fetchone()
+                return duplicate is not None
         except Exception as e:
-            self.store.rollback()
-            raise e
-        finally:
-            cur.close()
-        return file.doc_id
+            logger.error(f"Error checking for duplicate: {e}")
+            return False
+    
+    def add_document(self, file: File):
+        return self._execute_db_command("""
+            INSERT INTO documents (file_path, file_name, file_size, file_sha1, file_extension, chunk_size, chunk_overlap)
+            VALUES (%s, %s, %s, %s, %s, %s, %s) RETURNING doc_id
+        """, (
+            file.file_path,
+            file.file_name,
+            file.file_size,
+            file.file_sha1,
+            file.file_extension,
+            file.chunk_size,
+            file.chunk_overlap
+        ))
 
     def add_vectors(self, file: File, embed: List):
-        cur = self.store.get_cursor()
-        vector_ids = []
-        try:
-            for vector_index, vector_data in enumerate(embed):
-                vector_id = uuid.uuid4()
-                vector_ids.append(vector_id)
-                cur.execute("""
-                    INSERT INTO vectors (vector_id, doc_id, vector_index, embeddings, created_at)
-                    VALUES (%s, %s, %s, %s, CURRENT_TIMESTAMP)
-                """, (
-                    vector_id,
-                    file.doc_id,
-                    vector_index,
-                    vector_data
-                ))
-            self.store.commit()
-        except Exception as e:
-            self.store.rollback()
-            raise e
-        finally:
-            cur.close()
+        vector_ids = [uuid.uuid4() for _ in embed]
+        for vector_id, vector_data in zip(vector_ids, embed):
+            self._execute_db_command("""
+                INSERT INTO vectors (vector_id, doc_id, vector_index, embeddings, created_at)
+                VALUES (%s, %s, %s, %s, CURRENT_TIMESTAMP)
+            """, (
+                vector_id,
+                file.doc_id,
+                vector_data
+            ))
         return vector_ids
 
     def update_document_vectors(self, doc_id, vector_ids: List[uuid.UUID]):
-        cur = self.store.get_cursor()
-        try:
-            # Execute the SQL command, passing the list of UUIDs directly
-            cur.execute("""
-                UPDATE documents SET vectors_ids = %s WHERE doc_id = %s
-            """, (vector_ids, doc_id))
-            self.store.commit()
-        except Exception as e:
-            self.store.rollback()
-            raise e
-        finally:
-            cur.close()
+        self._execute_db_command("""
+            UPDATE documents SET vectors_ids = %s WHERE doc_id = %s
+        """, (vector_ids, doc_id))
 
     def update_file_content(self, doc_id, file_content):
-        """
-        Updates the file_content of a document in the database.
-
-        Args:
-            doc_id (UUID): The unique identifier of the document.
-            file_content (str): The text content to be saved in the file_content column.
-        """
-        cur = self.store.get_cursor()
-        try:
-            cur.execute("""
-                UPDATE documents SET content = %s WHERE doc_id = %s
-            """, (file_content, doc_id))
-            self.store.commit()
-        except Exception as e:
-            self.store.rollback()
-            raise e
-        finally:
-            cur.close()
+        self._execute_db_command("""
+            UPDATE documents SET content = %s WHERE doc_id = %s
+        """, (file_content, doc_id))
     
     def retrieve_doc_id(self, sha1):
-        """
-        Retrieves the document ID for a given SHA-1 hash value.
-
-        Args:
-            sha1 (str): The SHA-1 hash value of the document.
-
-        Returns:
-            UUID: The unique identifier of the document if found, otherwise None.
-        """
         try:
             doc_id = self.store.retrieve_doc_id(sha1)
             if doc_id:
                 return doc_id
             else:
                 logger.info(f"No document found for SHA-1 hash {sha1}")
-                return None
         except Exception as e:
             logger.error(f"An error occurred while retrieving the document ID for SHA-1 hash {sha1}: {e}")
-            return None
-    
+
     def retrieve_embeddings(self, doc_id):
-        """
-        Retrieves all embeddings for a given document ID and converts them to a 2D numpy array.
-
-        Args:
-            doc_id (UUID): The unique identifier of the document.
-
-        Returns:
-            numpy.ndarray: 2D numpy array of embeddings.
-        """
+        # Assuming store.retrieve_embeddings returns a list of embedding strings
         embedding_strings = self.store.retrieve_embeddings(doc_id)
-        embedding_arrays = [np.array(embed_str.strip('[]').split(','), dtype=float) for embed_str in embedding_strings]
-        return np.vstack(embedding_arrays)
-    
+        return [np.array(embed_str.strip('[]').split(','), dtype=float) for embed_str in embedding_strings]
+
     def retrieve_file(self, doc_id):
-        """
-        Retrieves the file metadata for a given document ID.
-
-        Args:
-            doc_id (UUID): The unique identifier of the document.
-
-        Returns:
-            dict: A dictionary containing file metadata like file_path and file_extension.
-        """
         try:
             chunks_metadata = self.store.retrieve_chunks(doc_id)
-            file_path = chunks_metadata['file_path']
-            chunk_size = chunks_metadata['chunk_size']
-            chunk_overlap = chunks_metadata['chunk_overlap']
-            if file_path:
+            if chunks_metadata:
                 file = File()
-                file.import_path(filepath=file_path,
-                                 chunk_size=chunk_size,
-                                 chunk_overlap=chunk_overlap)
+                file.import_path(filepath=chunks_metadata['file_path'],
+                                 chunk_size=chunks_metadata['chunk_size'],
+                                 chunk_overlap=chunks_metadata['chunk_overlap'])
                 return file
             else:
                 logger.error(f"No file found for doc_id {doc_id}")
-                return None
         except Exception as e:
             logger.error(f"An error occurred while retrieving the file for doc_id {doc_id}: {e}")
-            return None
     
     def retrieve_content(self, doc_id):
-        """
-        Retrieves the content of a document from the database.
-
-        Args:
-            doc_id (UUID): The unique identifier of the document.
-
-        Returns:
-            str: The content of the document, or None if not found.
-
-        Raises:
-            Exception: If an error occurs during the retrieval process.
-        """
         try:
             content = self.store.retrieve_content(doc_id)
             if content is not None:
@@ -176,10 +116,8 @@ class Memory:
                 return content
             else:
                 logger.warning(f"No content found for doc_id {doc_id}")
-                return None
         except Exception as e:
             logger.error(f"Error retrieving content for doc_id {doc_id}: {e}")
-            raise e
     
     def retrieve_chunk(self, doc_id, chunk_index, loader_class):
         """
